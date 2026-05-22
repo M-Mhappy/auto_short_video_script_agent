@@ -1,0 +1,34 @@
+# 环境变量与密钥（切勿提交）
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+
+# LangGraph / 后端运行时
+backend/checkpoints.db
+backend/checkpoints.db-*
+backend/output/
+*.docx
+
+# 前端
+frontend/node_modules/
+frontend/dist/
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Cursor（可选：若不想提交本地计划缓存）
+# .cursor/
