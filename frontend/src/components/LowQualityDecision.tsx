@@ -27,6 +27,10 @@ export default function LowQualityDecision({
         <ScoreCard review={review} />
       </div>
 
+      <p className="text-xs text-gray-400 mb-3">
+        该书信息不足以生成高质量口播稿，建议换一本热门书试试。
+      </p>
+
       <div className="flex gap-3">
         <button
           onClick={onAccept}
@@ -38,7 +42,7 @@ export default function LowQualityDecision({
           onClick={onAbandon}
           className="flex-1 py-2.5 text-gray-400 border border-gray-300 rounded-lg hover:text-red-500 hover:border-red-300 transition-colors"
         >
-          放弃本次生成
+          放弃，换本书
         </button>
       </div>
     </div>

@@ -9,8 +9,8 @@ def low_quality_node(state: dict) -> dict:
         "message": (
             f"口播稿审核得分 {review.get('total', 0)} 分，未达标。\n"
             f"原因：{review.get('reasoning', '无')}\n\n"
-            "当前书籍信息可能不足以生成高质量口播稿。\n"
-            "您可以选择：接受当前稿件 / 放弃本次生成"
+            "该书信息不足以生成高质量口播稿，建议换一本热门书试试。\n"
+            "您也可以选择接受当前稿件继续使用。"
         ),
     })
 
