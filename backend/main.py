@@ -13,7 +13,8 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.types import Command
 
 from backend.graph.builder import build_graph
-from backend.config import SQLITE_DB_PATH
+from backend.config import SQLITE_DB_PATH, SCRIPT_ENDING, TTS_VOICE, TTS_PROXY, AUDIO_OUTPUT_DIR
+from backend.tools.tts import generate_audio
 
 sessions: dict[str, dict] = {}
 checkpointer: AsyncSqliteSaver | None = None
@@ -330,6 +331,60 @@ async def download_word(session_id: str):
         pass
 
     raise HTTPException(404, "Word file not found")
+
+
+class TTSRequest(BaseModel):
+    voice: str = ""
+    rate: str = "+0%"
+    volume: str = "+0%"
+    pitch: str = "+0Hz"
+
+
+@app.post("/api/session/{session_id}/tts")
+async def generate_tts(session_id: str, body: TTSRequest = TTSRequest()):
+    if session_id not in sessions:
+        raise HTTPException(404, "Session not found")
+
+    config = _get_config(session_id)
+    try:
+        snapshot = await compiled_graph.aget_state(config)
+        if not (snapshot and snapshot.values):
+            raise HTTPException(400, "Session has no script data")
+
+        script = snapshot.values.get("script_draft", "")
+        if not script:
+            raise HTTPException(400, "No script to convert")
+
+        tts_text = script.replace(SCRIPT_ENDING.strip(), "").strip()
+        book = snapshot.values.get("selected_book") or {}
+        book_title = book.get("title", "")
+        voice = body.voice or TTS_VOICE
+        filepath = await generate_audio(
+            tts_text, voice, AUDIO_OUTPUT_DIR, TTS_PROXY,
+            book_title=book_title,
+            rate=body.rate, volume=body.volume, pitch=body.pitch,
+        )
+        sessions[session_id]["audio_path"] = filepath
+        return {"status": "ok", "filename": os.path.basename(filepath)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"TTS generation failed: {e}")
+
+
+@app.get("/api/session/{session_id}/download-audio")
+async def download_audio(session_id: str):
+    if session_id not in sessions:
+        raise HTTPException(404, "Session not found")
+
+    filepath = sessions[session_id].get("audio_path", "")
+    if filepath and os.path.exists(filepath):
+        return FileResponse(
+            filepath,
+            media_type="audio/mpeg",
+            filename=os.path.basename(filepath),
+        )
+    raise HTTPException(404, "Audio file not found")
 
 
 if __name__ == "__main__":

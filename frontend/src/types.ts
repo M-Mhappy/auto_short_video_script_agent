@@ -49,5 +49,5 @@ export interface ChatMessage {
   content: string
   timestamp: number
   data?: Record<string, unknown>
-  type?: 'text' | 'book_select' | 'script_preview' | 'score' | 'low_quality' | 'loading' | 'export'
+  type?: 'text' | 'book_select' | 'script_preview' | 'score' | 'low_quality' | 'loading' | 'export' | 'audio'
 }

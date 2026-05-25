@@ -8,12 +8,27 @@ import {
   submitFeedback,
   subscribeSSE,
   getDownloadUrl,
+  generateTTS,
+  getAudioDownloadUrl,
 } from './api'
+import type { TTSParams } from './api'
 import ProgressBar from './components/ProgressBar'
 import BookSelector from './components/BookSelector'
 import ScriptPreview from './components/ScriptPreview'
 import LowQualityDecision from './components/LowQualityDecision'
 import LoadingIndicator from './components/LoadingIndicator'
+
+const VOICE_OPTIONS = [
+  { id: 'zh-CN-YunxiNeural', label: '云希（男·自然叙事）' },
+  { id: 'zh-CN-YunjianNeural', label: '云健（男·浑厚沉稳）' },
+  { id: 'zh-CN-YunhaoNeural', label: '云皓（男·温暖亲切）' },
+  { id: 'zh-CN-YunyangNeural', label: '云扬（男·新闻播报）' },
+  { id: 'zh-CN-XiaoxiaoNeural', label: '晓晓（女·温柔清晰）' },
+  { id: 'zh-CN-XiaoyiNeural', label: '晓伊（女·活泼年轻）' },
+  { id: 'zh-CN-XiaochenNeural', label: '晓辰（女·成熟知性）' },
+  { id: 'zh-TW-HsiaoChenNeural', label: '晓臻（女·台湾腔）' },
+  { id: 'zh-HK-HiuGaaiNeural', label: '曉佳（女·粤语）' },
+]
 
 function genId() {
   return Math.random().toString(36).slice(2, 10)
@@ -27,6 +42,13 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState('')
   const [isRunning, setIsRunning] = useState(false)
   const [interrupt, setInterrupt] = useState<InterruptData | null>(null)
+  const [ttsLoading, setTtsLoading] = useState(false)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [showTtsPanel, setShowTtsPanel] = useState(false)
+  const [ttsVoice, setTtsVoice] = useState('zh-CN-YunxiNeural')
+  const [ttsRate, setTtsRate] = useState(0)
+  const [ttsVolume, setTtsVolume] = useState(0)
+  const [ttsPitch, setTtsPitch] = useState(0)
   const esRef = useRef<EventSource | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -229,6 +251,35 @@ export default function App() {
     addMessage({ role: 'system', content: '已放弃本次生成。', type: 'text' })
   }
 
+  const handleTTS = async () => {
+    if (!sessionId) return
+    setTtsLoading(true)
+    try {
+      const params: TTSParams = {
+        voice: ttsVoice,
+        rate: `${ttsRate >= 0 ? '+' : ''}${ttsRate}%`,
+        volume: `${ttsVolume >= 0 ? '+' : ''}${ttsVolume}%`,
+        pitch: `${ttsPitch >= 0 ? '+' : ''}${ttsPitch}Hz`,
+      }
+      await generateTTS(sessionId, params)
+      setAudioUrl(getAudioDownloadUrl(sessionId))
+      addMessage({
+        role: 'assistant',
+        content: 'AI 配音已生成！',
+        type: 'audio',
+        data: { audioUrl: getAudioDownloadUrl(sessionId) },
+      })
+    } catch (err) {
+      addMessage({
+        role: 'system',
+        content: `配音失败：${err instanceof Error ? err.message : '未知错误'}`,
+        type: 'text',
+      })
+    } finally {
+      setTtsLoading(false)
+    }
+  }
+
   const handleNewSession = () => {
     if (esRef.current) esRef.current.close()
     setSessionId(null)
@@ -236,6 +287,9 @@ export default function App() {
     setCurrentStep('')
     setIsRunning(false)
     setInterrupt(null)
+    setTtsLoading(false)
+    setAudioUrl(null)
+    setShowTtsPanel(false)
     setMode('direct')
   }
 
@@ -328,13 +382,105 @@ export default function App() {
               >
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                 {msg.type === 'export' && msg.data?.downloadUrl && (
-                  <a
-                    href={msg.data.downloadUrl as string}
-                    className="inline-block mt-3 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
-                    download
-                  >
-                    下载 Word 文档
-                  </a>
+                  <div className="mt-3 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={msg.data.downloadUrl as string}
+                        className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
+                        download
+                      >
+                        下载 Word 文档
+                      </a>
+                      {!audioUrl && (
+                        <>
+                          <button
+                            onClick={() => setShowTtsPanel((v) => !v)}
+                            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                          >
+                            配音设置
+                          </button>
+                          <button
+                            onClick={handleTTS}
+                            disabled={ttsLoading}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                              ttsLoading
+                                ? 'bg-purple-300 text-white cursor-wait'
+                                : 'bg-purple-500 text-white hover:bg-purple-600'
+                            }`}
+                          >
+                            {ttsLoading ? '配音生成中...' : 'AI 配音'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {showTtsPanel && !audioUrl && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3 text-sm">
+                        <div>
+                          <label className="block text-gray-600 mb-1 font-medium">音色</label>
+                          <select
+                            value={ttsVoice}
+                            onChange={(e) => setTtsVoice(e.target.value)}
+                            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                          >
+                            {VOICE_OPTIONS.map((v) => (
+                              <option key={v.id} value={v.id}>{v.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-gray-600 mb-1 font-medium">
+                            语速：{ttsRate > 0 ? `+${ttsRate}%` : `${ttsRate}%`}
+                          </label>
+                          <input
+                            type="range" min={-50} max={100} value={ttsRate}
+                            onChange={(e) => setTtsRate(Number(e.target.value))}
+                            className="w-full accent-purple-500"
+                          />
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>慢</span><span>正常</span><span>快</span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-gray-600 mb-1 font-medium">
+                            音量：{ttsVolume > 0 ? `+${ttsVolume}%` : `${ttsVolume}%`}
+                          </label>
+                          <input
+                            type="range" min={-50} max={50} value={ttsVolume}
+                            onChange={(e) => setTtsVolume(Number(e.target.value))}
+                            className="w-full accent-purple-500"
+                          />
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>轻</span><span>正常</span><span>响</span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-gray-600 mb-1 font-medium">
+                            音调：{ttsPitch > 0 ? `+${ttsPitch}Hz` : `${ttsPitch}Hz`}
+                          </label>
+                          <input
+                            type="range" min={-50} max={50} value={ttsPitch}
+                            onChange={(e) => setTtsPitch(Number(e.target.value))}
+                            className="w-full accent-purple-500"
+                          />
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>低沉</span><span>正常</span><span>尖锐</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {msg.type === 'audio' && msg.data?.audioUrl && (
+                  <div className="mt-3 space-y-2">
+                    <audio controls className="w-full" src={msg.data.audioUrl as string} />
+                    <a
+                      href={msg.data.audioUrl as string}
+                      className="inline-block px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-medium hover:bg-purple-600 transition-colors"
+                      download
+                    >
+                      下载音频文件
+                    </a>
+                  </div>
                 )}
               </div>
             </div>

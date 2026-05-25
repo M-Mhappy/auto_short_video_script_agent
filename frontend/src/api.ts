@@ -56,6 +56,33 @@ export function getDownloadUrl(sessionId: string): string {
   return `${BASE}/session/${sessionId}/download`
 }
 
+export interface TTSParams {
+  voice?: string
+  rate?: string
+  volume?: string
+  pitch?: string
+}
+
+export async function generateTTS(
+  sessionId: string,
+  params: TTSParams = {},
+): Promise<{ status: string; filename: string }> {
+  const res = await fetch(`${BASE}/session/${sessionId}/tts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: '配音失败' }))
+    throw new Error(err.detail || '配音失败')
+  }
+  return res.json()
+}
+
+export function getAudioDownloadUrl(sessionId: string): string {
+  return `${BASE}/session/${sessionId}/download-audio`
+}
+
 export function subscribeSSE(
   sessionId: string,
   onEvent: (event: string, data: unknown) => void,
