@@ -10,6 +10,30 @@ interface Props {
   onAbandon: () => void
 }
 
+function renderScriptBody(script: string) {
+  const lines = script.split('\n')
+  return lines.map((line, i) => {
+    if (line.startsWith('## ')) {
+      return (
+        <h4
+          key={i}
+          className="text-base font-bold text-gray-900 mt-4 mb-2 first:mt-0 border-l-4 border-blue-500 pl-3"
+        >
+          {line.slice(3).trim()}
+        </h4>
+      )
+    }
+    if (!line.trim()) {
+      return <div key={i} className="h-2" />
+    }
+    return (
+      <p key={i} className="text-gray-700 leading-relaxed text-sm mb-1">
+        {line}
+      </p>
+    )
+  })
+}
+
 export default function ScriptPreview({
   script,
   review,
@@ -21,6 +45,7 @@ export default function ScriptPreview({
   const [showFeedback, setShowFeedback] = useState(false)
   const wordCount = script.replace(/\s/g, '').length
   const minutes = Math.round(wordCount / 250)
+  const chapterCount = (script.match(/^## /gm) || []).length
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -28,6 +53,7 @@ export default function ScriptPreview({
         <h3 className="text-lg font-semibold text-gray-800">口播稿预览</h3>
         <div className="text-sm text-gray-400">
           约 {wordCount} 字 / {minutes} 分钟
+          {chapterCount > 0 && ` / ${chapterCount} 章`}
         </div>
       </div>
 
@@ -38,9 +64,7 @@ export default function ScriptPreview({
       )}
 
       <div className="bg-gray-50 rounded-lg p-5 mb-4 max-h-96 overflow-y-auto">
-        <div className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
-          {script}
-        </div>
+        <div>{renderScriptBody(script)}</div>
       </div>
 
       {!showFeedback ? (

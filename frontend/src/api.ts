@@ -61,12 +61,23 @@ export interface TTSParams {
   rate?: string
   volume?: string
   pitch?: string
+  mode?: 'full' | 'chapters'
 }
+
+export interface ChapterAudioFile {
+  chapter: number
+  title: string
+  filename: string
+}
+
+export type TTSResponse =
+  | { status: string; mode: 'full'; filename: string }
+  | { status: string; mode: 'chapters'; files: ChapterAudioFile[]; zip_filename: string }
 
 export async function generateTTS(
   sessionId: string,
   params: TTSParams = {},
-): Promise<{ status: string; filename: string }> {
+): Promise<TTSResponse> {
   const res = await fetch(`${BASE}/session/${sessionId}/tts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -79,8 +90,85 @@ export async function generateTTS(
   return res.json()
 }
 
-export function getAudioDownloadUrl(sessionId: string): string {
+export function getAudioDownloadUrl(sessionId: string, chapter?: number): string {
+  if (chapter !== undefined) {
+    return `${BASE}/session/${sessionId}/download-audio?chapter=${chapter}`
+  }
   return `${BASE}/session/${sessionId}/download-audio`
+}
+
+export function getAudioZipUrl(sessionId: string): string {
+  return `${BASE}/session/${sessionId}/download-audio-zip`
+}
+
+export type { PresentationData, PresentationStep } from './presentation/types'
+import type { PresentationData } from './presentation/types'
+
+export async function generatePresentation(
+  sessionId: string,
+): Promise<{ status: string; step_count: number; pptx_filename?: string }> {
+  const res = await fetch(`${BASE}/session/${sessionId}/presentation/generate`, {
+    method: 'POST',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: '生成演示失败' }))
+    throw new Error(err.detail || '生成演示失败')
+  }
+  return res.json()
+}
+
+export async function getPresentation(sessionId: string): Promise<PresentationData> {
+  const res = await fetch(`${BASE}/session/${sessionId}/presentation`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: '演示数据不存在' }))
+    throw new Error(err.detail || '演示数据不存在')
+  }
+  return res.json() as Promise<PresentationData>
+}
+
+export async function generatePresentationTTS(
+  sessionId: string,
+  params: TTSParams = {},
+): Promise<{ status: string; audio_count: number; zip_filename: string }> {
+  const res = await fetch(`${BASE}/session/${sessionId}/presentation/tts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: '演示配音失败' }))
+    throw new Error(err.detail || '演示配音失败')
+  }
+  return res.json()
+}
+
+export function getPresentationAudioUrl(sessionId: string, stepIndex: number): string {
+  return `${BASE}/session/${sessionId}/presentation/audio/${stepIndex}`
+}
+
+export function getPresentationAudioZipUrl(sessionId: string): string {
+  return `${BASE}/session/${sessionId}/presentation/audio-zip`
+}
+
+export function getPresentationPptxUrl(sessionId: string): string {
+  return `${BASE}/session/${sessionId}/presentation/download-pptx`
+}
+
+export async function generatePresentationVideo(
+  sessionId: string,
+): Promise<{ status: string; video_filename: string }> {
+  const res = await fetch(`${BASE}/session/${sessionId}/presentation/video`, {
+    method: 'POST',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: '视频合成失败' }))
+    throw new Error(err.detail || '视频合成失败')
+  }
+  return res.json()
+}
+
+export function getPresentationVideoUrl(sessionId: string): string {
+  return `${BASE}/session/${sessionId}/presentation/download-video`
 }
 
 export function subscribeSSE(

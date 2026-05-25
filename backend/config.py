@@ -10,11 +10,11 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 
 SQLITE_DB_PATH = os.path.join(os.path.dirname(__file__), "checkpoints.db")
-WORD_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
+OUTPUT_BASE = os.path.join(os.path.dirname(__file__), "output")
 
 TTS_VOICE = os.getenv("TTS_VOICE", "zh-CN-YunxiNeural")
 TTS_PROXY = os.getenv("TTS_PROXY", "")
-AUDIO_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
+FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg")
 
 REVIEW_PASS_THRESHOLD = 80
 REVIEW_RETRY_THRESHOLD = 60

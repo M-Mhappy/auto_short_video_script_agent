@@ -1,0 +1,150 @@
+.presentation-root {
+  --pres-bg: #0f1419;
+  --pres-fg: #e8eaed;
+  --pres-muted: #9aa0a6;
+  --pres-accent: #6b9fff;
+  --pres-hero-size: 4.5rem;
+  --pres-body-size: 1.75rem;
+}
+
+.presentation-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--pres-bg);
+  color: var(--pres-fg);
+  overflow: hidden;
+}
+
+.presentation-stage-wrap {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.presentation-stage {
+  width: 1920px;
+  height: 1080px;
+  transform-origin: center center;
+  position: relative;
+  padding: 80px 100px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.presentation-chrome {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.presentation-chrome button {
+  pointer-events: auto;
+}
+
+.presentation-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 40px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.presentation-root:hover .presentation-progress {
+  opacity: 1;
+}
+
+.presentation-progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.presentation-progress-fill {
+  height: 100%;
+  background: var(--pres-accent);
+  transition: width 0.25s ease;
+}
+
+.presentation-step-enter {
+  animation: presFadeIn 0.6s ease forwards;
+}
+
+@keyframes presFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pres-hero-title {
+  font-size: var(--pres-hero-size);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.pres-hero-sub {
+  font-size: 2rem;
+  color: var(--pres-muted);
+  margin-top: 1.5rem;
+}
+
+.pres-chapter-tag {
+  font-size: 1.125rem;
+  color: var(--pres-accent);
+  margin-bottom: 2rem;
+  text-transform: none;
+}
+
+.pres-body {
+  font-size: var(--pres-body-size);
+  line-height: 1.65;
+  max-width: 1400px;
+}
+
+.pres-quote {
+  font-size: 2.75rem;
+  line-height: 1.4;
+  font-style: italic;
+  border-left: 6px solid var(--pres-accent);
+  padding-left: 2rem;
+  max-width: 1200px;
+}
+
+.pres-list-title {
+  font-size: 1.5rem;
+  color: var(--pres-muted);
+  margin-bottom: 1.5rem;
+}
+
+.pres-list-item {
+  font-size: 2.25rem;
+  font-weight: 600;
+}
+
+.pres-list-index {
+  color: var(--pres-accent);
+  margin-right: 0.75rem;
+}

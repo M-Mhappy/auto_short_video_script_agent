@@ -1,19 +1,19 @@
 import os
 import uuid
 from docx import Document
-from docx.shared import Pt, Inches
+from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from backend.config import WORD_OUTPUT_DIR
+from backend.tools.output_paths import book_output_dirs, book_slug
 
 
 def export_word_node(state: dict) -> dict:
     script = state.get("script_draft", "")
+    chapters = state.get("script_chapters") or []
     book = state.get("selected_book", {})
     title = book.get("title", "口播稿")
     author = book.get("author", "")
 
-    os.makedirs(WORD_OUTPUT_DIR, exist_ok=True)
-
+    dirs = book_output_dirs(title)
     doc = Document()
 
     style = doc.styles["Normal"]
@@ -32,14 +32,28 @@ def export_word_node(state: dict) -> dict:
 
     doc.add_paragraph("")
 
-    paragraphs = script.split("\n")
-    for para_text in paragraphs:
-        stripped = para_text.strip()
-        if stripped:
-            doc.add_paragraph(stripped)
+    if chapters:
+        for ch in chapters:
+            ch_title = ch.get("title", "").strip()
+            ch_content = ch.get("content", "").strip()
+            if ch_title:
+                doc.add_heading(ch_title, level=2)
+            for para_text in ch_content.split("\n"):
+                stripped = para_text.strip()
+                if stripped:
+                    doc.add_paragraph(stripped)
+    else:
+        for para_text in script.split("\n"):
+            stripped = para_text.strip()
+            if stripped:
+                if stripped.startswith("## "):
+                    doc.add_heading(stripped[3:].strip(), level=2)
+                else:
+                    doc.add_paragraph(stripped)
 
-    filename = f"{title}_口播稿_{uuid.uuid4().hex[:8]}.docx"
-    filepath = os.path.join(WORD_OUTPUT_DIR, filename)
+    prefix = book_slug(title)
+    filename = f"{prefix}_口播稿_{uuid.uuid4().hex[:8]}.docx"
+    filepath = os.path.join(dirs["word"], filename)
     doc.save(filepath)
 
     return {

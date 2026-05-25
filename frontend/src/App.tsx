@@ -10,9 +10,18 @@ import {
   getDownloadUrl,
   generateTTS,
   getAudioDownloadUrl,
+  getAudioZipUrl,
+  generatePresentation,
+  getPresentation,
+  generatePresentationTTS,
+  generatePresentationVideo,
+  getPresentationPptxUrl,
+  getPresentationAudioZipUrl,
+  getPresentationVideoUrl,
 } from './api'
-import type { TTSParams } from './api'
+import type { TTSParams, ChapterAudioFile, PresentationData } from './api'
 import ProgressBar from './components/ProgressBar'
+import PresentationView from './presentation/PresentationView'
 import BookSelector from './components/BookSelector'
 import ScriptPreview from './components/ScriptPreview'
 import LowQualityDecision from './components/LowQualityDecision'
@@ -44,11 +53,22 @@ export default function App() {
   const [interrupt, setInterrupt] = useState<InterruptData | null>(null)
   const [ttsLoading, setTtsLoading] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [audioChapters, setAudioChapters] = useState<ChapterAudioFile[]>([])
   const [showTtsPanel, setShowTtsPanel] = useState(false)
+  const [ttsMode, setTtsMode] = useState<'full' | 'chapters'>('full')
   const [ttsVoice, setTtsVoice] = useState('zh-CN-YunxiNeural')
   const [ttsRate, setTtsRate] = useState(0)
   const [ttsVolume, setTtsVolume] = useState(0)
   const [ttsPitch, setTtsPitch] = useState(0)
+  const [viewMode, setViewMode] = useState<'chat' | 'presentation'>('chat')
+  const [presentationReady, setPresentationReady] = useState(false)
+  const [presentationHasAudio, setPresentationHasAudio] = useState(false)
+  const [presentationLoading, setPresentationLoading] = useState(false)
+  const [presentationTtsLoading, setPresentationTtsLoading] = useState(false)
+  const [presentationVideoLoading, setPresentationVideoLoading] = useState(false)
+  const [presentationVideoReady, setPresentationVideoReady] = useState(false)
+  const [presentationData, setPresentationData] = useState<PresentationData | null>(null)
+  const [presentationAuto, setPresentationAuto] = useState(false)
   const esRef = useRef<EventSource | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -57,6 +77,31 @@ export default function App() {
   }, [])
 
   useEffect(scrollToBottom, [messages, interrupt, scrollToBottom])
+
+  const ttsParams = (): TTSParams => ({
+    voice: ttsVoice,
+    rate: `${ttsRate >= 0 ? '+' : ''}${ttsRate}%`,
+    volume: `${ttsVolume >= 0 ? '+' : ''}${ttsVolume}%`,
+    pitch: `${ttsPitch >= 0 ? '+' : ''}${ttsPitch}Hz`,
+  })
+
+  const openPresentation = useCallback(async (sid: string, auto: boolean) => {
+    const data = await getPresentation(sid)
+    setPresentationData(data)
+    setPresentationHasAudio(data.has_audio)
+    setPresentationAuto(auto)
+    setViewMode('presentation')
+  }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('presentation') === '1' && params.get('session')) {
+      const sid = params.get('session')!
+      setSessionId(sid)
+      setPresentationReady(true)
+      openPresentation(sid, params.get('auto') === '1').catch(() => {})
+    }
+  }, [openPresentation])
 
   const addMessage = useCallback(
     (msg: Omit<ChatMessage, 'id' | 'timestamp'>) => {
@@ -255,20 +300,32 @@ export default function App() {
     if (!sessionId) return
     setTtsLoading(true)
     try {
-      const params: TTSParams = {
-        voice: ttsVoice,
-        rate: `${ttsRate >= 0 ? '+' : ''}${ttsRate}%`,
-        volume: `${ttsVolume >= 0 ? '+' : ''}${ttsVolume}%`,
-        pitch: `${ttsPitch >= 0 ? '+' : ''}${ttsPitch}Hz`,
+      const params: TTSParams = { ...ttsParams(), mode: ttsMode }
+      const result = await generateTTS(sessionId, params)
+      if (result.mode === 'chapters') {
+        setAudioUrl(null)
+        setAudioChapters(result.files)
+        addMessage({
+          role: 'assistant',
+          content: `AI 配音已生成（${result.files.length} 个章节）！`,
+          type: 'audio',
+          data: {
+            mode: 'chapters',
+            chapters: result.files,
+            zipUrl: getAudioZipUrl(sessionId),
+          },
+        })
+      } else {
+        const url = getAudioDownloadUrl(sessionId)
+        setAudioUrl(url)
+        setAudioChapters([])
+        addMessage({
+          role: 'assistant',
+          content: 'AI 配音已生成！',
+          type: 'audio',
+          data: { mode: 'full', audioUrl: url },
+        })
       }
-      await generateTTS(sessionId, params)
-      setAudioUrl(getAudioDownloadUrl(sessionId))
-      addMessage({
-        role: 'assistant',
-        content: 'AI 配音已生成！',
-        type: 'audio',
-        data: { audioUrl: getAudioDownloadUrl(sessionId) },
-      })
     } catch (err) {
       addMessage({
         role: 'system',
@@ -277,6 +334,88 @@ export default function App() {
       })
     } finally {
       setTtsLoading(false)
+    }
+  }
+
+  const handleGeneratePresentation = async () => {
+    if (!sessionId) return
+    setPresentationLoading(true)
+    try {
+      const res = await generatePresentation(sessionId)
+      setPresentationReady(true)
+      setPresentationHasAudio(false)
+      setPresentationVideoReady(false)
+      addMessage({
+        role: 'assistant',
+        content: `演示文稿已生成（${res.step_count} 步），可打开演示或生成演示配音。`,
+        type: 'text',
+      })
+    } catch (err) {
+      addMessage({
+        role: 'system',
+        content: `生成演示失败：${err instanceof Error ? err.message : '未知错误'}`,
+        type: 'text',
+      })
+    } finally {
+      setPresentationLoading(false)
+    }
+  }
+
+  const handlePresentationTTS = async () => {
+    if (!sessionId) return
+    setPresentationTtsLoading(true)
+    try {
+      await generatePresentationTTS(sessionId, ttsParams())
+      setPresentationHasAudio(true)
+      setPresentationVideoReady(false)
+      addMessage({
+        role: 'assistant',
+        content: '演示配音已生成，打开演示可自动连播（录屏建议用自动播放）。',
+        type: 'text',
+      })
+    } catch (err) {
+      addMessage({
+        role: 'system',
+        content: `演示配音失败：${err instanceof Error ? err.message : '未知错误'}`,
+        type: 'text',
+      })
+    } finally {
+      setPresentationTtsLoading(false)
+    }
+  }
+
+  const handleGenerateVideo = async () => {
+    if (!sessionId) return
+    setPresentationVideoLoading(true)
+    try {
+      await generatePresentationVideo(sessionId)
+      setPresentationVideoReady(true)
+      addMessage({
+        role: 'assistant',
+        content: '演示视频已合成，可下载 MP4 文件。',
+        type: 'text',
+      })
+    } catch (err) {
+      addMessage({
+        role: 'system',
+        content: `视频合成失败：${err instanceof Error ? err.message : '未知错误'}`,
+        type: 'text',
+      })
+    } finally {
+      setPresentationVideoLoading(false)
+    }
+  }
+
+  const handleOpenPresentation = async (auto = false) => {
+    if (!sessionId) return
+    try {
+      await openPresentation(sessionId, auto)
+    } catch (err) {
+      addMessage({
+        role: 'system',
+        content: `打开演示失败：${err instanceof Error ? err.message : '请先点击生成演示文稿'}`,
+        type: 'text',
+      })
     }
   }
 
@@ -289,8 +428,30 @@ export default function App() {
     setInterrupt(null)
     setTtsLoading(false)
     setAudioUrl(null)
+    setAudioChapters([])
     setShowTtsPanel(false)
+    setTtsMode('full')
+    setViewMode('chat')
+    setPresentationReady(false)
+    setPresentationHasAudio(false)
+    setPresentationVideoReady(false)
+    setPresentationData(null)
+    setPresentationAuto(false)
     setMode('direct')
+  }
+
+  if (viewMode === 'presentation' && sessionId && presentationData) {
+    return (
+      <PresentationView
+        sessionId={sessionId}
+        data={presentationData}
+        autoPlay={presentationAuto}
+        onClose={() => {
+          setViewMode('chat')
+          setPresentationAuto(false)
+        }}
+      />
+    )
   }
 
   return (
@@ -381,7 +542,7 @@ export default function App() {
                 }`}
               >
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                {msg.type === 'export' && msg.data?.downloadUrl && (
+                {msg.type === 'export' && typeof msg.data?.downloadUrl === 'string' && (
                   <div className="mt-3 space-y-3">
                     <div className="flex flex-wrap gap-2">
                       <a
@@ -391,30 +552,145 @@ export default function App() {
                       >
                         下载 Word 文档
                       </a>
-                      {!audioUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setShowTtsPanel((v) => !v)}
+                        className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                      >
+                        配音设置
+                      </button>
+                      {!audioUrl && audioChapters.length === 0 && (
+                        <button
+                          onClick={handleTTS}
+                          disabled={ttsLoading}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            ttsLoading
+                              ? 'bg-purple-300 text-white cursor-wait'
+                              : 'bg-purple-500 text-white hover:bg-purple-600'
+                          }`}
+                        >
+                          {ttsLoading ? '配音生成中...' : 'AI 配音'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleGeneratePresentation}
+                        disabled={presentationLoading}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          presentationLoading
+                            ? 'bg-amber-200 text-amber-800 cursor-wait'
+                            : 'bg-amber-500 text-white hover:bg-amber-600'
+                        }`}
+                      >
+                        {presentationLoading ? '生成中...' : '生成演示文稿'}
+                      </button>
+                      {presentationReady && (
                         <>
-                          <button
-                            onClick={() => setShowTtsPanel((v) => !v)}
-                            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                          <a
+                            href={sessionId ? getPresentationPptxUrl(sessionId) : '#'}
+                            className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
+                            download
                           >
-                            配音设置
+                            下载演示文稿 PPTX
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPresentation(false)}
+                            className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 text-white hover:bg-slate-800 transition-colors"
+                          >
+                            打开网页演示
                           </button>
                           <button
-                            onClick={handleTTS}
-                            disabled={ttsLoading}
+                            type="button"
+                            onClick={handlePresentationTTS}
+                            disabled={presentationTtsLoading}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                              ttsLoading
-                                ? 'bg-purple-300 text-white cursor-wait'
-                                : 'bg-purple-500 text-white hover:bg-purple-600'
+                              presentationTtsLoading
+                                ? 'bg-indigo-300 text-white cursor-wait'
+                                : 'bg-indigo-500 text-white hover:bg-indigo-600'
                             }`}
                           >
-                            {ttsLoading ? '配音生成中...' : 'AI 配音'}
+                            {presentationTtsLoading
+                              ? '演示配音中...'
+                              : presentationHasAudio
+                                ? '重新生成演示配音'
+                                : '生成演示配音'}
                           </button>
+                          {presentationHasAudio && (
+                            <>
+                              <a
+                                href={sessionId ? getPresentationAudioZipUrl(sessionId) : '#'}
+                                className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors"
+                                download
+                              >
+                                下载演示配音
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenPresentation(true)}
+                                className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-600 text-slate-700 hover:bg-slate-100 transition-colors"
+                              >
+                                自动播放演示
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleGenerateVideo}
+                                disabled={presentationVideoLoading}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                  presentationVideoLoading
+                                    ? 'bg-rose-300 text-white cursor-wait'
+                                    : 'bg-rose-500 text-white hover:bg-rose-600'
+                                }`}
+                              >
+                                {presentationVideoLoading
+                                  ? '视频合成中...'
+                                  : presentationVideoReady
+                                    ? '重新生成视频'
+                                    : '生成视频'}
+                              </button>
+                              {presentationVideoReady && (
+                                <a
+                                  href={sessionId ? getPresentationVideoUrl(sessionId) : '#'}
+                                  className="px-4 py-2 rounded-lg text-sm font-medium bg-rose-100 text-rose-700 hover:bg-rose-200 transition-colors"
+                                  download
+                                >
+                                  下载视频 MP4
+                                </a>
+                              )}
+                            </>
+                          )}
                         </>
                       )}
                     </div>
-                    {showTtsPanel && !audioUrl && (
+                    {showTtsPanel && (
                       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3 text-sm">
+                        <div>
+                          <label className="block text-gray-600 mb-1 font-medium">合成模式</label>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setTtsMode('full')}
+                              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                ttsMode === 'full'
+                                  ? 'bg-purple-500 text-white'
+                                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
+                              }`}
+                            >
+                              整篇合成
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setTtsMode('chapters')}
+                              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                ttsMode === 'chapters'
+                                  ? 'bg-purple-500 text-white'
+                                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
+                              }`}
+                            >
+                              按章节合成
+                            </button>
+                          </div>
+                        </div>
                         <div>
                           <label className="block text-gray-600 mb-1 font-medium">音色</label>
                           <select
@@ -470,7 +746,7 @@ export default function App() {
                     )}
                   </div>
                 )}
-                {msg.type === 'audio' && msg.data?.audioUrl && (
+                {msg.type === 'audio' && msg.data?.mode === 'full' && typeof msg.data?.audioUrl === 'string' && (
                   <div className="mt-3 space-y-2">
                     <audio controls className="w-full" src={msg.data.audioUrl as string} />
                     <a
@@ -480,6 +756,38 @@ export default function App() {
                     >
                       下载音频文件
                     </a>
+                  </div>
+                )}
+                {msg.type === 'audio' && msg.data?.mode === 'chapters' && (
+                  <div className="mt-3 space-y-3">
+                    {(msg.data.chapters as ChapterAudioFile[]).map((ch) => (
+                      <div key={ch.chapter} className="border border-gray-100 rounded-lg p-3">
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          {ch.chapter}. {ch.title}
+                        </p>
+                        <audio
+                          controls
+                          className="w-full mb-2"
+                          src={sessionId ? getAudioDownloadUrl(sessionId, ch.chapter) : ''}
+                        />
+                        <a
+                          href={sessionId ? getAudioDownloadUrl(sessionId, ch.chapter) : '#'}
+                          className="text-xs text-purple-600 hover:text-purple-700"
+                          download
+                        >
+                          下载本章
+                        </a>
+                      </div>
+                    ))}
+                    {typeof msg.data?.zipUrl === 'string' && (
+                      <a
+                        href={msg.data.zipUrl as string}
+                        className="inline-block px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-medium hover:bg-purple-600 transition-colors"
+                        download
+                      >
+                        下载全部（ZIP）
+                      </a>
+                    )}
                   </div>
                 )}
               </div>

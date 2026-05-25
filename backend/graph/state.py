@@ -11,6 +11,11 @@ class BookInfo(TypedDict):
     relevance_reason: str
 
 
+class ScriptChapter(TypedDict):
+    title: str
+    content: str
+
+
 class ReviewResult(TypedDict):
     fact_accuracy: int
     fidelity: int
@@ -30,6 +35,7 @@ class AgentState(MessagesState):
     selected_book: Optional[BookInfo]
     reference_script: str
     script_draft: str
+    script_chapters: list[ScriptChapter]
     review_result: Optional[ReviewResult]
     retry_count: int
     user_feedback: str
