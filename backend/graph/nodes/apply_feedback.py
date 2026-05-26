@@ -1,6 +1,7 @@
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
-from backend.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, SCRIPT_ENDING
+from backend.config import SCRIPT_ENDING
+from backend.llm import get_llm
+from backend.prompts.templates import APPLY_FEEDBACK_PROMPT
 from backend.tools.chapters import parse_chapters
 
 SYSTEM_MSG = (
@@ -14,29 +15,16 @@ def apply_feedback_node(state: dict) -> dict:
     current_script = state.get("script_draft", "")
     feedback = state.get("user_feedback", "")
 
-    llm = ChatOpenAI(
-        api_key=DEEPSEEK_API_KEY,
-        base_url=DEEPSEEK_BASE_URL,
-        model=DEEPSEEK_MODEL,
-        temperature=0.7,
-        max_tokens=8192,
+    llm = get_llm(temperature=0.7)
+
+    prompt = APPLY_FEEDBACK_PROMPT.format(
+        current_script=current_script,
+        user_feedback=feedback,
     )
 
     messages = [
         SystemMessage(content=SYSTEM_MSG),
-        HumanMessage(content=(
-            f"用户修改要求：\n{feedback}\n\n"
-            "---以下是当前稿件---\n\n"
-            f"{current_script}\n\n"
-            "---稿件结束---\n\n"
-            "请根据上述修改要求重写稿件。要求：\n"
-            "1. 针对用户提到的问题做出明确修改\n"
-            "2. 保持整体叙事结构和风格一致\n"
-            "3. 反馈要求增加内容时，在不编造前提下补充\n"
-            "4. 反馈要求删减时优先删重复或次要内容\n"
-            "5. 必须保留 ## 章节标题 分段格式\n"
-            "6. 输出修改后的完整稿件全文"
-        )),
+        HumanMessage(content=prompt),
     ]
 
     response = llm.invoke(messages)

@@ -1,20 +1,14 @@
 import json
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
-from backend.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from backend.llm import get_llm
+from backend.tools.json_utils import parse_llm_json
 from backend.prompts.templates import BOOK_SEARCH_FORMAT_PROMPT
 from backend.tools.search import tavily_search, tavily_search_raw
 
 
 def _clean_book_info(title: str, raw_text: str) -> dict:
     """轻量 LLM 调用：从原始文本中提取干净的中文作者名和简介。"""
-    llm = ChatOpenAI(
-        api_key=DEEPSEEK_API_KEY,
-        base_url=DEEPSEEK_BASE_URL,
-        model=DEEPSEEK_MODEL,
-        temperature=0,
-        max_tokens=512,
-    )
+    llm = get_llm(temperature=0, max_tokens=512)
     messages = [
         SystemMessage(content="从原始文本中提取书籍信息，输出严格JSON，无其他文字。"),
         HumanMessage(content=(
@@ -24,8 +18,7 @@ def _clean_book_info(title: str, raw_text: str) -> dict:
         )),
     ]
     response = llm.invoke(messages)
-    content = response.content.strip().replace("```json", "").replace("```", "").strip()
-    return json.loads(content)
+    return parse_llm_json(response.content, dict)
 
 
 def _direct_search(user_input: str, previous_titles: list[str]) -> list[dict]:
@@ -71,12 +64,7 @@ def _keyword_search(keywords: list[str], previous_titles: list[str], retry_count
 
     raw_results = tavily_search(query, max_results=8)
 
-    llm = ChatOpenAI(
-        api_key=DEEPSEEK_API_KEY,
-        base_url=DEEPSEEK_BASE_URL,
-        model=DEEPSEEK_MODEL,
-        temperature=0.3,
-    )
+    llm = get_llm(temperature=0.3)
 
     exclude_note = ""
     if previous_titles:
@@ -84,14 +72,10 @@ def _keyword_search(keywords: list[str], previous_titles: list[str], retry_count
 
     prompt = BOOK_SEARCH_FORMAT_PROMPT.format(raw_search_results=raw_results) + exclude_note
     response = llm.invoke(prompt)
-    content = response.content.strip()
 
     try:
-        content = content.replace("```json", "").replace("```", "").strip()
-        books = json.loads(content)
-        if not isinstance(books, list):
-            books = []
-    except json.JSONDecodeError:
+        books = parse_llm_json(response.content, list)
+    except (json.JSONDecodeError, ValueError):
         books = []
 
     if previous_titles:

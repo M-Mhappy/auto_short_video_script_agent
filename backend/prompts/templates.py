@@ -22,18 +22,7 @@ BOOK_SEARCH_FORMAT_PROMPT = """你是一位书籍信息整理专家。将多源�
 输出严格 JSON 数组，无其他文字：
 [{{"title": "", "author": "", "intro": "100-200字简介", "relevance_reason": ""}}]"""
 
-ENTRY_ROUTE_PROMPT = """判断用户输入属于哪种模式：
-- 模式一（keyword）：用户输入的是模糊描述、关键词、或想要某类书的需求
-- 模式二（direct）：用户输入了明确的书名（可能带作者名）
-
-用户输入：{user_input}
-
-仅返回 JSON，无其他文字：
-{{"mode": "keyword" 或 "direct", "reason": "简短理由"}}"""
-
-GENERATE_SCRIPT_PROMPT = """你是一位资深短视频口播稿撰稿人，擅长将书籍内容转化为讲故事式口播稿。
-
-书籍信息：
+GENERATE_SCRIPT_PROMPT = """书籍信息：
 书名：{book_title}
 作者：{book_author}
 简介：{book_intro}
@@ -57,15 +46,12 @@ GENERATE_SCRIPT_PROMPT = """你是一位资深短视频口播稿撰稿人，擅�
 
 直接输出口播稿全文，保留 ## 章节标记，不要加其它说明。"""
 
-REVIEW_SCRIPT_PROMPT = """你是一位严格的书籍内容审核员。审核 AI 生成的口播稿是否忠实、准确地转述了原书。
+REVIEW_SCRIPT_PROMPT = """书籍：{book_title} / {book_author}
 
-审核方法：
-1. 基于你的知识回顾该书核心情节、论点、章节结构
-2. 结合联网搜索补充验证（如可用）
-
-书籍：{book_title} / {book_author}
-待审核稿：{script_draft}
 联网补充：{web_search_results}
+
+待审核稿：
+{script_draft}
 
 评分维度（各 0-25，满分 100）：
 1. 事实准确性：有无编造原文不存在的情节/论点/案例/数据
@@ -74,16 +60,7 @@ REVIEW_SCRIPT_PROMPT = """你是一位严格的书籍内容审核员。审核 AI
 4. 风格一致性：风格是否符合该书主旨应有的基调
 
 输出严格 JSON，无其他文字：
-{{
-  "fact_accuracy": 0,
-  "fidelity": 0,
-  "completeness": 0,
-  "style_consistency": 0,
-  "total": 0,
-  "reasoning": "总体评价与详细理由，200-400字",
-  "hallucinations": [],
-  "omissions": []
-}}
+{{"fact_accuracy": 0, "fidelity": 0, "completeness": 0, "style_consistency": 0, "total": 0, "reasoning": "总体评价与详细理由，200-400字", "hallucinations": [], "omissions": []}}
 
 规则：
 - 如无问题可给满分
@@ -91,19 +68,20 @@ REVIEW_SCRIPT_PROMPT = """你是一位严格的书籍内容审核员。审核 AI
 - 总分 = 四维之和
 - 理由必须具体，指出问题所在段落"""
 
-APPLY_FEEDBACK_PROMPT = """你是一位口播稿修改专家。根据用户反馈精准修改，仅改用户提到的问题，不擅自大改。
+APPLY_FEEDBACK_PROMPT = """当前稿件：
+{current_script}
 
-当前稿件：{current_script}
-用户反馈：{user_feedback}
+用户修改要求：
+{user_feedback}
 
 要求：
-- 保持整体叙事结构和风格一致
-- 必须保留 ## 章节标题 分段格式
-- 反馈模糊时增加细节描写或情绪渲染
-- 要求增加某章节时，在不编造前提下补充
-- 要求删减时优先删重复或次要内容
-
-输出修改后的完整稿件全文（不要只输出片段）。"""
+1. 针对用户提到的问题做出明确、可感知的修改
+2. 修改后的稿件必须与原稿有显著不同
+3. 保持整体叙事结构和风格一致
+4. 必须保留 ## 章节标题 分段格式
+5. 反馈要求增加内容时，在不编造前提下补充
+6. 反馈要求删减时优先删重复或次要内容
+7. 输出修改后的完整稿件全文"""
 
 PRESENTATION_OUTLINE_PROMPT = """你是一位短视频网页演示编导。将口播稿章节拆成可点击推进的演示步骤（每步一屏）。
 

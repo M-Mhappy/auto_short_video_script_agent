@@ -15,6 +15,7 @@ OUTPUT_BASE = os.path.join(os.path.dirname(__file__), "output")
 TTS_VOICE = os.getenv("TTS_VOICE", "zh-CN-YunxiNeural")
 TTS_PROXY = os.getenv("TTS_PROXY", "")
 FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg")
+FONT_PATH = os.getenv("FONT_PATH", "")
 
 REVIEW_PASS_THRESHOLD = 80
 REVIEW_RETRY_THRESHOLD = 60

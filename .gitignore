@@ -16,6 +16,8 @@ env/
 # LangGraph / 后端运行时
 backend/checkpoints.db
 backend/checkpoints.db-*
+backend/sessions.db
+backend/sessions.db-*
 backend/output/
 *.docx
 

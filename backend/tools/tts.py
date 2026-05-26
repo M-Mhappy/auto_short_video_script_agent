@@ -1,9 +1,12 @@
+import asyncio
 import os
 import re
 import uuid
 import zipfile
 
 import edge_tts
+
+TTS_CONCURRENCY = 3
 
 
 def _safe_filename(name: str) -> str:
@@ -39,32 +42,35 @@ async def generate_chapter_audios(
     volume: str = "+0%",
     pitch: str = "+0Hz",
 ) -> list[dict]:
-    """Generate one MP3 per chapter. Returns [{chapter, title, filename, filepath}]."""
+    """Generate one MP3 per chapter with controlled concurrency."""
     os.makedirs(output_dir, exist_ok=True)
     prefix = _safe_filename(book_title) if book_title else "voiceover"
-    results: list[dict] = []
+    sem = asyncio.Semaphore(TTS_CONCURRENCY)
 
-    for idx, ch in enumerate(chapters, start=1):
+    async def _gen(idx: int, ch: dict) -> dict | None:
         title = ch.get("title", f"第{idx}章").strip()
         content = ch.get("content", "").strip()
         if not content:
-            continue
+            return None
         safe_title = _safe_filename(title)[:30] or f"ch{idx}"
-        filename = f"{prefix}_{idx:02d}_{safe_title}.mp3"
-        filepath = await generate_audio(
-            content, voice, output_dir, proxy,
-            book_title=book_title,
-            rate=rate, volume=volume, pitch=pitch,
-            filename=filename,
-        )
-        results.append({
+        fname = f"{prefix}_{idx:02d}_{safe_title}.mp3"
+        async with sem:
+            filepath = await generate_audio(
+                content, voice, output_dir, proxy,
+                book_title=book_title,
+                rate=rate, volume=volume, pitch=pitch,
+                filename=fname,
+            )
+        return {
             "chapter": idx,
             "title": title,
             "filename": os.path.basename(filepath),
             "filepath": filepath,
-        })
+        }
 
-    return results
+    tasks = [_gen(idx, ch) for idx, ch in enumerate(chapters, start=1)]
+    raw_results = await asyncio.gather(*tasks)
+    return [r for r in raw_results if r is not None]
 
 
 async def generate_step_audios(
@@ -77,28 +83,32 @@ async def generate_step_audios(
     volume: str = "+0%",
     pitch: str = "+0Hz",
 ) -> list[dict]:
-    """One MP3 per presentation step from narration field."""
+    """One MP3 per presentation step with controlled concurrency."""
+    os.makedirs(output_dir, exist_ok=True)
     prefix = _safe_filename(book_title) if book_title else "presentation"
-    results: list[dict] = []
+    sem = asyncio.Semaphore(TTS_CONCURRENCY)
 
-    for idx, step in enumerate(steps):
+    async def _gen(idx: int, step: dict) -> dict | None:
         narration = (step.get("narration") or "").strip()
         if not narration:
-            continue
-        filename = f"{prefix}_step_{idx:03d}.mp3"
-        filepath = await generate_audio(
-            narration, voice, output_dir, proxy,
-            book_title=book_title,
-            rate=rate, volume=volume, pitch=pitch,
-            filename=filename,
-        )
-        results.append({
+            return None
+        fname = f"{prefix}_step_{idx:03d}.mp3"
+        async with sem:
+            filepath = await generate_audio(
+                narration, voice, output_dir, proxy,
+                book_title=book_title,
+                rate=rate, volume=volume, pitch=pitch,
+                filename=fname,
+            )
+        return {
             "step": idx,
             "filename": os.path.basename(filepath),
             "filepath": filepath,
-        })
+        }
 
-    return results
+    tasks = [_gen(idx, step) for idx, step in enumerate(steps)]
+    raw_results = await asyncio.gather(*tasks)
+    return [r for r in raw_results if r is not None]
 
 
 def zip_audio_files(filepaths: list[str], zip_path: str) -> str:

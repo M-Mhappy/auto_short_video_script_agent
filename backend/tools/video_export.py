@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from backend.config import FFMPEG_PATH
+from backend.config import FFMPEG_PATH, FONT_PATH
 from backend.tools.slide_layout import (
     ACCENT_COLOR, FG_COLOR, MUTED_COLOR, BG_COLOR,
     SLIDE_W, SLIDE_H, PADDING_X, PADDING_Y,
@@ -18,11 +18,39 @@ from backend.tools.slide_layout import (
 )
 
 DEFAULT_SLIDE_SECONDS = 5
-FONT_CANDIDATES = [
+
+_WINDOWS_FONTS = [
     r"C:\Windows\Fonts\msyh.ttc",
     r"C:\Windows\Fonts\msyhbd.ttc",
     r"C:\Windows\Fonts\simhei.ttf",
 ]
+_LINUX_FONTS = [
+    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+]
+_MAC_FONTS = [
+    "/System/Library/Fonts/PingFang.ttc",
+    "/System/Library/Fonts/STHeiti Medium.ttc",
+]
+
+
+def _font_candidates(bold: bool = False) -> list[str]:
+    """Return font search paths: env override first, then platform defaults."""
+    candidates: list[str] = []
+    if FONT_PATH:
+        candidates.append(FONT_PATH)
+    import sys
+    if sys.platform == "win32":
+        if bold:
+            candidates.extend([r"C:\Windows\Fonts\msyhbd.ttc"] + _WINDOWS_FONTS)
+        else:
+            candidates.extend(_WINDOWS_FONTS)
+    elif sys.platform == "darwin":
+        candidates.extend(_MAC_FONTS)
+    else:
+        candidates.extend(_LINUX_FONTS)
+    return candidates
 
 
 def _resolve_ffmpeg() -> str:
@@ -37,12 +65,7 @@ def _resolve_ffmpeg() -> str:
 
 
 def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    candidates = FONT_CANDIDATES if not bold else [
-        r"C:\Windows\Fonts\msyhbd.ttc",
-        r"C:\Windows\Fonts\msyh.ttc",
-        r"C:\Windows\Fonts\simhei.ttf",
-    ]
-    for path in candidates:
+    for path in _font_candidates(bold):
         if os.path.isfile(path):
             try:
                 return ImageFont.truetype(path, size)

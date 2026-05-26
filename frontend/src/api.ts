@@ -56,6 +56,31 @@ export function getDownloadUrl(sessionId: string): string {
   return `${BASE}/session/${sessionId}/download`
 }
 
+export async function uploadScript(
+  text: string,
+  title?: string,
+): Promise<{ session_id: string; chapter_count: number; title: string }> {
+  const res = await fetch(`${BASE}/session/upload-script`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, title: title || '' }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: '上传失败' }))
+    throw new Error(err.detail || '上传失败')
+  }
+  return res.json()
+}
+
+export async function exportWordCustom(sessionId: string): Promise<{ status: string; filename: string }> {
+  const res = await fetch(`${BASE}/session/${sessionId}/export-word`, { method: 'POST' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Word 导出失败' }))
+    throw new Error(err.detail || 'Word 导出失败')
+  }
+  return res.json()
+}
+
 export interface TTSParams {
   voice?: string
   rate?: string
@@ -169,6 +194,52 @@ export async function generatePresentationVideo(
 
 export function getPresentationVideoUrl(sessionId: string): string {
   return `${BASE}/session/${sessionId}/presentation/download-video`
+}
+
+/* ---- History ---- */
+
+export interface HistoryFiles {
+  word: boolean
+  audio: boolean
+  pptx: boolean
+  video: boolean
+}
+
+export interface HistoryItem {
+  session_id: string
+  title: string
+  created_at: string
+  is_custom: boolean
+  files: HistoryFiles
+}
+
+export interface ResumeInfo {
+  session_id: string
+  title: string
+  is_custom: boolean
+  word_file: string
+  audio_file: string
+  audio_zip: string
+  audio_chapters: ChapterAudioFile[]
+  pptx_file: string
+  video_file: string
+  pres_audio_zip: string
+  has_presentation: boolean
+  has_pres_audio: boolean
+}
+
+export async function getHistory(limit = 10): Promise<{ sessions: HistoryItem[] }> {
+  const res = await fetch(`${BASE}/session/history?limit=${limit}`)
+  return res.json()
+}
+
+export async function getResumeInfo(sessionId: string): Promise<ResumeInfo> {
+  const res = await fetch(`${BASE}/session/${sessionId}/resume-info`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: '获取会话信息失败' }))
+    throw new Error(err.detail || '获取会话信息失败')
+  }
+  return res.json()
 }
 
 export function subscribeSSE(

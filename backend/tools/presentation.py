@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import json
-import re
 
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from backend.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from backend.llm import get_llm
 from backend.prompts.templates import PRESENTATION_OUTLINE_PROMPT
+from backend.tools.json_utils import parse_llm_json
 
 VALID_TYPES = frozenset({"hero", "text", "quote", "list_item"})
 
@@ -17,16 +16,6 @@ SYSTEM_MSG = (
     "你是短视频网页演示编导。将口播稿拆成演示步骤。"
     "仅输出 JSON 数组，无 markdown 包裹，无解释。"
 )
-
-
-def _parse_json_array(content: str) -> list:
-    text = content.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-    data = json.loads(text.strip())
-    if not isinstance(data, list):
-        raise ValueError("Expected JSON array")
-    return data
 
 
 def _validate_steps(steps: list) -> list[dict]:
@@ -67,13 +56,7 @@ def generate_presentation_steps(
         chapters_json=chapters_json,
     )
 
-    llm = ChatOpenAI(
-        api_key=DEEPSEEK_API_KEY,
-        base_url=DEEPSEEK_BASE_URL,
-        model=DEEPSEEK_MODEL,
-        temperature=0.5,
-        max_tokens=8192,
-    )
+    llm = get_llm(temperature=0.5)
 
     last_error: Exception | None = None
     for attempt in range(2):
@@ -85,7 +68,7 @@ def generate_presentation_steps(
         ]
         response = llm.invoke(messages)
         try:
-            steps = _parse_json_array(response.content)
+            steps = parse_llm_json(response.content, list)
             return _validate_steps(steps)
         except (json.JSONDecodeError, ValueError) as e:
             last_error = e
