@@ -83,28 +83,112 @@ APPLY_FEEDBACK_PROMPT = """当前稿件：
 6. 反馈要求删减时优先删重复或次要内容
 7. 输出修改后的完整稿件全文"""
 
-PRESENTATION_OUTLINE_PROMPT = """你是一位短视频网页演示编导。将口播稿章节拆成可点击推进的演示步骤（每步一屏）。
+PRESENTATION_OUTLINE_PROMPT = """你是一位书籍纪录片视觉导演。将口播稿章节拆分为演示步骤（每步一屏），要求画面如书籍纪录片般有叙事感和氛围。
 
 书籍：{book_title} / {book_author}
 
 口播稿章节（JSON）：
 {chapters_json}
 
-任务：输出严格 JSON 数组，无其它文字。每项为一步，字段：
-- type: "hero" | "text" | "quote" | "list_item"（必填）
-- chapter_title: 所属章节标题（必填）
-- narration: 该步口播短句，15-60字，供配音（必填）
-- title, subtitle: hero 用
-- body: text 用，每步 body 不超过 120 字
-- quote: quote 用
-- list_title, item_index, item_text: list_item 用（列表必须拆成多个 list_item，1 项 = 1 step）
+任务：输出严格 JSON 数组，无其它文字。每项为一步，字段如下：
 
-规则：
-1. 按章节顺序，每章至少 2-4 步
-2. 每章开头优先 hero（大标题+副标题）
-3. 禁止一步塞整章全文；长列表拆成多个 list_item
-4. 保留口播叙事顺序，覆盖各章核心信息
-5. narration 与屏幕文字可略有不同，但必须连贯
+```
+{{
+  "step": 序号(从1开始),
+  "chapter_title": "所属章节标题（必填）",
+  "narration": "该步口播短句，15-60字，供配音（必填）",
+  "screen": {{
+    "headline": "核心标题，简短有力，6-15字（必填）",
+    "subhead": "副标题/补充信息（可选，空字符串表示无）",
+    "visual": {{
+      "type": "reveal | quote | list",
+      "elements": [
+        {{
+          "kind": "text | number | quote | icon",
+          "content": "元素内容",
+          "role": "该元素在画面中的功能角色",
+          "animate": "fade-in | fly-in | typewriter | none"
+        }}
+      ],
+      "mood": "calm | tense | dramatic | playful | warm | mysterious",
+      "scene": "book | archive | timeline | silhouette | city | nature | void",
+      "motion": "slow | medium | strong"
+    }}
+  }}
+}}
+```
 
-示例一项：
-{{"type":"hero","chapter_title":"开场","title":"主标题","subtitle":"副标题","narration":"你有没有想过……"}}"""
+## 视觉类型说明
+
+| type | 何时用 | elements 要求 |
+|------|--------|---------------|
+| reveal | 展示核心观点/标题/场景描述 | 1-3 个短元素，混用 text/number/icon 丰富画面 |
+| quote | 引用书中金句/原话 | 1 个 kind="quote" 元素 + 可选 subhead 填出处 |
+| list | 逐项揭示要点 | 每步 1-2 个元素，可用 number 带数字编号 |
+
+## element kind 选用指南
+
+| kind | 何时用 | content 写法 | 示例 |
+|------|--------|-------------|------|
+| text | 短关键词/短语/场景描述（**控制在20字以内**） | 精炼短句 | "命运的十字路口" |
+| number | 涉及数字/排名/阶段/天数/年份 | "数字+说明"（如"7天"、"3个阶段"） | "7天 亡者的漫游" |
+| icon | 场景关键词，表示氛围/象征（不再用 emoji，写关键词即可） | 概念词 | "孤独" |
+| quote | 书中原话/金句 | 金句全文 | "活着就是为了活着本身" |
+
+## scene 场景选用（纪录片风格场景动画）
+
+| scene | 何时用 | 画面效果 |
+|-------|--------|----------|
+| book | 阅读、翻阅、文字相关、开篇/收尾 | 翻页、书脊、纸上文字行 |
+| archive | 档案、历史回顾、资料考证 | 档案卡片、批注线、印章 |
+| timeline | 时间推进、阶段递进、人生节点 | 时间轴、节点点亮 |
+| silhouette | 人物描写、孤独、行走、内心 | 人物剪影、行走/停顿 |
+| city | 城市、社会、现实映照 | 远景楼群、窗口灯光 |
+| nature | 自然、田园、季节、环境 | 树影、雨线、叶片飘落 |
+| void | 死亡、虚无、哲思、迷失 | 雾气、漂浮纸屑 |
+
+## motion 动画节奏
+
+| motion | 何时用 |
+|--------|--------|
+| slow | 安静叙述、哲思、回忆 |
+| medium | 一般叙事（默认） |
+| strong | 高潮、冲突、转折 |
+
+## mood 选用
+
+| mood | 何时用 |
+|------|--------|
+| dramatic | 开场钩子、高潮、冲突、震撼观点 |
+| warm | 治愈、温情、亲情、爱情 |
+| tense | 紧张、悬疑、危机 |
+| mysterious | 神秘、哲思、未知 |
+| playful | 幽默、讽刺、轻松 |
+| calm | 叙述、过渡、总结 |
+
+## animate 选用
+
+| animate | 何时用 |
+|---------|--------|
+| fade-in | 默认，适合大多数元素 |
+| fly-in | list 条目、从侧面滑入的要点 |
+| typewriter | 悬念揭示、关键短语逐字出现 |
+| none | 已在前一步显示过的固定标题 |
+
+## 约束
+
+1. 按章节顺序，每章 2-5 步
+2. 每章开头用 reveal + dramatic/warm mood 展示章节标题
+3. **每步聚焦一个想法**，禁止一步塞整章全文
+4. headline 必须简短有力（6-15字），**不要把整段话塞进 headline**
+5. text 类 content **控制在 20 字以内**，是关键词/短句而非段落
+6. **积极使用 number 和 icon**，让画面有视觉层次，不要全部都是 text
+7. 每步 mood 要根据内容氛围变化，不要全填 calm
+8. **每步必须填写 scene 和 motion**，根据内容选择最贴切的纪录片场景
+9. scene 应随内容变化，同一章可切换不同场景
+10. narration 与屏幕文字可略有不同，但必须连贯
+11. 保留口播叙事顺序，覆盖各章核心信息
+12. 禁止编造书中没有的数据/案例
+
+示例三项：
+[{{"step":1,"chapter_title":"开场","narration":"你有没有想过，如果人死后还有意识，会最先想到什么？","screen":{{"headline":"死后的意识","subhead":"","visual":{{"type":"reveal","elements":[{{"kind":"icon","content":"死亡","role":"氛围关键词","animate":"fade-in"}},{{"kind":"text","content":"如果你还有意识","role":"核心问题","animate":"typewriter"}}],"mood":"dramatic","scene":"void","motion":"medium"}}}}}},{{"step":2,"chapter_title":"七天漫游","narration":"主人公用了整整七天，走遍了死后的世界。","screen":{{"headline":"七天漫游","subhead":"亡者眼中的人间","visual":{{"type":"reveal","elements":[{{"kind":"number","content":"7天 亡者的漫游","role":"时间跨度","animate":"fade-in"}},{{"kind":"icon","content":"旅行","role":"叙事线索","animate":"fade-in"}}],"mood":"mysterious","scene":"timeline","motion":"slow"}}}}}},{{"step":3,"chapter_title":"金句","narration":"余华写道：死无葬身之地，是最温暖的归宿。","screen":{{"headline":"","subhead":"——余华《第七天》","visual":{{"type":"quote","elements":[{{"kind":"quote","content":"死无葬身之地，是最温暖的归宿","role":"金句","animate":"fade-in"}}],"mood":"warm","scene":"book","motion":"slow"}}}}}}]"""

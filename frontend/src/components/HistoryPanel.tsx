@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { HistoryItem, ResumeInfo } from '../api'
-import { getHistory, getResumeInfo, getDownloadUrl, getAudioZipUrl, getPresentationPptxUrl, getPresentationVideoUrl, getPresentationAudioZipUrl, getAudioDownloadUrl } from '../api'
+import { getHistory, getResumeInfo, getDownloadUrl, getAudioZipUrl, getPresentationAudioZipUrl } from '../api'
 
 interface HistoryPanelProps {
   open: boolean
@@ -52,7 +52,6 @@ export default function HistoryPanel({ open, onClose, onResume }: HistoryPanelPr
     { key: 'word', label: 'Word' },
     { key: 'audio', label: '配音' },
     { key: 'pptx', label: '演示' },
-    { key: 'video', label: '视频' },
   ]
 
   return (
@@ -140,20 +139,11 @@ export default function HistoryPanel({ open, onClose, onResume }: HistoryPanelPr
                 )}
                 {item.files.pptx && (
                   <a
-                    href={getPresentationPptxUrl(item.session_id)}
+                    href={getPresentationAudioZipUrl(item.session_id)}
                     className="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors"
                     download
                   >
-                    演示
-                  </a>
-                )}
-                {item.files.video && (
-                  <a
-                    href={getPresentationVideoUrl(item.session_id)}
-                    className="text-xs px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors"
-                    download
-                  >
-                    视频
+                    演示配音
                   </a>
                 )}
 

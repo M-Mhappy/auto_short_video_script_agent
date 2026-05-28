@@ -24,16 +24,12 @@ interface ExportToolbarProps {
   presentationLoading: boolean
   onGeneratePresentation: () => void
   presentationReady: boolean
-  pptxUrl: string
+  narrationScriptUrl: string
   onOpenPresentation: (auto: boolean) => void
   presentationTtsLoading: boolean
   presentationHasAudio: boolean
   onPresentationTTS: () => void
   presentationAudioZipUrl: string
-  presentationVideoLoading: boolean
-  presentationVideoReady: boolean
-  onGenerateVideo: () => void
-  videoUrl: string
 }
 
 export default function ExportToolbar({
@@ -44,12 +40,10 @@ export default function ExportToolbar({
   ttsMode, ttsVoice, ttsRate, ttsVolume, ttsPitch,
   onTtsModeChange, onTtsVoiceChange, onTtsRateChange, onTtsVolumeChange, onTtsPitchChange,
   presentationLoading, onGeneratePresentation,
-  presentationReady, pptxUrl,
+  presentationReady, narrationScriptUrl,
   onOpenPresentation,
   presentationTtsLoading, presentationHasAudio, onPresentationTTS,
   presentationAudioZipUrl,
-  presentationVideoLoading, presentationVideoReady, onGenerateVideo,
-  videoUrl,
 }: ExportToolbarProps) {
   return (
     <div className="mt-3 space-y-3">
@@ -95,13 +89,6 @@ export default function ExportToolbar({
         </button>
         {presentationReady && (
           <>
-            <a
-              href={pptxUrl}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
-              download
-            >
-              下载演示文稿 PPTX
-            </a>
             <button
               type="button"
               onClick={() => onOpenPresentation(false)}
@@ -109,6 +96,13 @@ export default function ExportToolbar({
             >
               打开网页演示
             </button>
+            <a
+              href={narrationScriptUrl}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
+              download
+            >
+              下载配音稿
+            </a>
             <button
               type="button"
               onClick={onPresentationTTS}
@@ -139,33 +133,8 @@ export default function ExportToolbar({
                   onClick={() => onOpenPresentation(true)}
                   className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-600 text-slate-700 hover:bg-slate-100 transition-colors"
                 >
-                  自动播放演示
+                  自动播放演示（录屏用）
                 </button>
-                <button
-                  type="button"
-                  onClick={onGenerateVideo}
-                  disabled={presentationVideoLoading}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    presentationVideoLoading
-                      ? 'bg-rose-300 text-white cursor-wait'
-                      : 'bg-rose-500 text-white hover:bg-rose-600'
-                  }`}
-                >
-                  {presentationVideoLoading
-                    ? '视频合成中...'
-                    : presentationVideoReady
-                      ? '重新生成视频'
-                      : '生成视频'}
-                </button>
-                {presentationVideoReady && (
-                  <a
-                    href={videoUrl}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-rose-100 text-rose-700 hover:bg-rose-200 transition-colors"
-                    download
-                  >
-                    下载视频 MP4
-                  </a>
-                )}
               </>
             )}
           </>

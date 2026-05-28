@@ -1,6 +1,5 @@
 """Media generation & download: TTS, presentation, video."""
 
-import asyncio
 import json
 import os
 import uuid
@@ -15,9 +14,8 @@ from backend.tools.tts import (
     generate_audio, generate_chapter_audios, generate_step_audios, zip_audio_files,
 )
 from backend.tools.presentation import generate_presentation_steps
+from backend.tools.narration_script import render_narration_script
 from backend.tools.output_paths import book_output_dirs, book_slug
-from backend.tools.pptx_export import generate_pptx
-from backend.tools.video_export import generate_video
 
 router = APIRouter(prefix="/api/session", tags=["media"])
 
@@ -155,8 +153,6 @@ async def presentation_generate(session_id: str):
         slug = book_slug(book_title)
         outline_name = f"{slug}_演示文稿_{uuid.uuid4().hex[:6]}.json"
         outline_path = os.path.join(dirs["word"], outline_name)
-        pptx_name = f"{slug}_演示文稿_{uuid.uuid4().hex[:6]}.pptx"
-        pptx_path = os.path.join(dirs["word"], pptx_name)
         with open(outline_path, "w", encoding="utf-8") as f:
             json.dump(
                 {"book": book, "steps": steps, "step_count": len(steps)},
@@ -164,19 +160,16 @@ async def presentation_generate(session_id: str):
                 ensure_ascii=False,
                 indent=2,
             )
-        generate_pptx(steps, book, pptx_path)
         sessions[session_id]["presentation_steps"] = steps
         sessions[session_id]["presentation_step_audio"] = []
         sessions[session_id]["presentation_audio_zip_path"] = ""
         sessions[session_id]["presentation_outline_path"] = outline_path
-        sessions[session_id]["presentation_pptx_path"] = pptx_path
         sessions[session_id]["presentation_video_path"] = ""
         sessions.save(session_id)
         return {
             "status": "ok",
             "step_count": len(steps),
             "outline_filename": outline_name,
-            "pptx_filename": pptx_name,
         }
     except HTTPException:
         raise
@@ -283,63 +276,30 @@ async def presentation_audio_zip(session_id: str):
     raise HTTPException(404, "Presentation audio zip not found")
 
 
-@router.get("/{session_id}/presentation/download-pptx")
-async def presentation_download_pptx(session_id: str):
-    session = require_session(session_id)
-
-    pptx_path = session.get("presentation_pptx_path", "")
-    if pptx_path and os.path.exists(pptx_path):
-        return FileResponse(
-            pptx_path,
-            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            filename=os.path.basename(pptx_path),
-        )
-    raise HTTPException(404, "Presentation PPTX not found")
-
-
-# ── Video ────────────────────────────────────────────────────
-
-@router.post("/{session_id}/presentation/video")
-async def presentation_video(session_id: str):
+@router.get("/{session_id}/presentation/narration-script")
+async def presentation_narration_script(session_id: str):
+    """Generate and download a narration script Markdown for the presentation."""
     session = require_session(session_id)
 
     steps = session.get("presentation_steps", [])
     if not steps:
         raise HTTPException(400, "Generate presentation first")
 
-    audio_list = session.get("presentation_step_audio", [])
-    if not audio_list:
-        raise HTTPException(400, "Generate presentation audio first")
-
     book = await get_book_info(session_id)
     book_title = book.get("title", "")
+    md_content = render_narration_script(steps, book_title)
 
-    dirs = book_output_dirs(book_title)
     slug = book_slug(book_title)
-    video_name = f"{slug}_演示视频_{uuid.uuid4().hex[:6]}.mp4"
-    video_path = os.path.join(dirs["mp3"], video_name)
+    dirs = book_output_dirs(book_title)
+    md_name = f"{slug}_配音稿.md"
+    md_path = os.path.join(dirs["word"], md_name)
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write(md_content)
 
-    try:
-        await asyncio.to_thread(generate_video, steps, audio_list, video_path)
-    except RuntimeError as e:
-        raise HTTPException(500, str(e))
-    except Exception as e:
-        raise HTTPException(500, f"Video generation failed: {e}")
-
-    sessions[session_id]["presentation_video_path"] = video_path
-    sessions.save(session_id)
-    return {"status": "ok", "video_filename": video_name}
+    return FileResponse(
+        md_path,
+        media_type="text/markdown; charset=utf-8",
+        filename=md_name,
+    )
 
 
-@router.get("/{session_id}/presentation/download-video")
-async def presentation_download_video(session_id: str):
-    session = require_session(session_id)
-
-    video_path = session.get("presentation_video_path", "")
-    if video_path and os.path.exists(video_path):
-        return FileResponse(
-            video_path,
-            media_type="video/mp4",
-            filename=os.path.basename(video_path),
-        )
-    raise HTTPException(404, "Presentation video not found")

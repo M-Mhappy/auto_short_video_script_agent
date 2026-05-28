@@ -7,8 +7,6 @@ export function usePresentation() {
   const [presentationHasAudio, setPresentationHasAudio] = useState(false)
   const [presentationLoading, setPresentationLoading] = useState(false)
   const [presentationTtsLoading, setPresentationTtsLoading] = useState(false)
-  const [presentationVideoLoading, setPresentationVideoLoading] = useState(false)
-  const [presentationVideoReady, setPresentationVideoReady] = useState(false)
   const [presentationData, setPresentationData] = useState<PresentationData | null>(null)
   const [presentationAuto, setPresentationAuto] = useState(false)
   const [viewMode, setViewMode] = useState<'chat' | 'presentation'>('chat')
@@ -25,7 +23,6 @@ export function usePresentation() {
     setViewMode('chat')
     setPresentationReady(false)
     setPresentationHasAudio(false)
-    setPresentationVideoReady(false)
     setPresentationData(null)
     setPresentationAuto(false)
   }, [])
@@ -35,8 +32,6 @@ export function usePresentation() {
     presentationHasAudio, setPresentationHasAudio,
     presentationLoading, setPresentationLoading,
     presentationTtsLoading, setPresentationTtsLoading,
-    presentationVideoLoading, setPresentationVideoLoading,
-    presentationVideoReady, setPresentationVideoReady,
     presentationData, setPresentationData,
     presentationAuto, setPresentationAuto,
     viewMode, setViewMode,

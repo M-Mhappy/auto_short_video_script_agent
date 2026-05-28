@@ -175,25 +175,8 @@ export function getPresentationAudioZipUrl(sessionId: string): string {
   return `${BASE}/session/${sessionId}/presentation/audio-zip`
 }
 
-export function getPresentationPptxUrl(sessionId: string): string {
-  return `${BASE}/session/${sessionId}/presentation/download-pptx`
-}
-
-export async function generatePresentationVideo(
-  sessionId: string,
-): Promise<{ status: string; video_filename: string }> {
-  const res = await fetch(`${BASE}/session/${sessionId}/presentation/video`, {
-    method: 'POST',
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: '视频合成失败' }))
-    throw new Error(err.detail || '视频合成失败')
-  }
-  return res.json()
-}
-
-export function getPresentationVideoUrl(sessionId: string): string {
-  return `${BASE}/session/${sessionId}/presentation/download-video`
+export function getNarrationScriptUrl(sessionId: string): string {
+  return `${BASE}/session/${sessionId}/presentation/narration-script`
 }
 
 /* ---- History ---- */

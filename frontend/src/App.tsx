@@ -13,10 +13,8 @@ import {
   getAudioZipUrl,
   generatePresentation,
   generatePresentationTTS,
-  generatePresentationVideo,
-  getPresentationPptxUrl,
   getPresentationAudioZipUrl,
-  getPresentationVideoUrl,
+  getNarrationScriptUrl,
   uploadScript,
 } from './api'
 import type { TTSParams, ChapterAudioFile, ResumeInfo } from './api'
@@ -270,7 +268,6 @@ export default function App() {
       const res = await generatePresentation(sessionId)
       pres.setPresentationReady(true)
       pres.setPresentationHasAudio(false)
-      pres.setPresentationVideoReady(false)
       addMessage({ role: 'assistant', content: `演示文稿已生成（${res.step_count} 步），可打开演示或生成演示配音。`, type: 'text' })
     } catch (err) {
       addMessage({ role: 'system', content: `生成演示失败：${err instanceof Error ? err.message : '未知错误'}`, type: 'text' })
@@ -285,26 +282,11 @@ export default function App() {
     try {
       await generatePresentationTTS(sessionId, tts.ttsParams())
       pres.setPresentationHasAudio(true)
-      pres.setPresentationVideoReady(false)
       addMessage({ role: 'assistant', content: '演示配音已生成，打开演示可自动连播（录屏建议用自动播放）。', type: 'text' })
     } catch (err) {
       addMessage({ role: 'system', content: `演示配音失败：${err instanceof Error ? err.message : '未知错误'}`, type: 'text' })
     } finally {
       pres.setPresentationTtsLoading(false)
-    }
-  }
-
-  const handleGenerateVideo = async () => {
-    if (!sessionId) return
-    pres.setPresentationVideoLoading(true)
-    try {
-      await generatePresentationVideo(sessionId)
-      pres.setPresentationVideoReady(true)
-      addMessage({ role: 'assistant', content: '演示视频已合成，可下载 MP4 文件。', type: 'text' })
-    } catch (err) {
-      addMessage({ role: 'system', content: `视频合成失败：${err instanceof Error ? err.message : '未知错误'}`, type: 'text' })
-    } finally {
-      pres.setPresentationVideoLoading(false)
     }
   }
 
@@ -346,7 +328,6 @@ export default function App() {
 
     if (info.has_presentation) pres.setPresentationReady(true)
     if (info.has_pres_audio) pres.setPresentationHasAudio(true)
-    if (info.video_file) pres.setPresentationVideoReady(true)
 
     addMessage({
       role: 'assistant',
@@ -528,16 +509,12 @@ export default function App() {
                     presentationLoading={pres.presentationLoading}
                     onGeneratePresentation={handleGeneratePresentation}
                     presentationReady={pres.presentationReady}
-                    pptxUrl={getPresentationPptxUrl(sessionId)}
+                    narrationScriptUrl={getNarrationScriptUrl(sessionId)}
                     onOpenPresentation={handleOpenPresentation}
                     presentationTtsLoading={pres.presentationTtsLoading}
                     presentationHasAudio={pres.presentationHasAudio}
                     onPresentationTTS={handlePresentationTTS}
                     presentationAudioZipUrl={getPresentationAudioZipUrl(sessionId)}
-                    presentationVideoLoading={pres.presentationVideoLoading}
-                    presentationVideoReady={pres.presentationVideoReady}
-                    onGenerateVideo={handleGenerateVideo}
-                    videoUrl={getPresentationVideoUrl(sessionId)}
                   />
                 )}
                 {msg.type === 'audio' && msg.data?.mode === 'full' && typeof msg.data?.audioUrl === 'string' && (

@@ -1,9 +1,39 @@
-export type PresentationStepType = 'hero' | 'text' | 'quote' | 'list_item'
+/* ── Visual step types ─── */
+
+export type VisualType = 'reveal' | 'quote' | 'list'
+export type AnimationType = 'fade-in' | 'fly-in' | 'typewriter' | 'none'
+export type MoodType = 'calm' | 'tense' | 'dramatic' | 'playful' | 'warm' | 'mysterious'
+export type SceneType = 'book' | 'archive' | 'timeline' | 'silhouette' | 'city' | 'nature' | 'void'
+export type MotionType = 'slow' | 'medium' | 'strong'
+
+export interface VisualElement {
+  kind: 'text' | 'number' | 'quote' | 'icon'
+  content: string
+  role: string
+  animate: AnimationType
+}
+
+export interface ScreenVisual {
+  type: VisualType
+  elements: VisualElement[]
+  mood: MoodType
+  scene?: SceneType
+  motion?: MotionType
+}
+
+export interface StepScreen {
+  headline: string
+  subhead: string
+  visual: ScreenVisual
+}
 
 export interface PresentationStep {
-  type: PresentationStepType
+  step: number
   chapter_title: string
   narration: string
+  screen: StepScreen
+  /* Legacy fields kept for backward compat during normalize */
+  type?: string
   title?: string
   subtitle?: string
   body?: string
