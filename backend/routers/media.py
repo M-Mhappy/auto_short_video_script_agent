@@ -1,4 +1,4 @@
-"""Media generation & download: TTS, presentation, video."""
+"""Media generation & download: TTS and web presentation."""
 
 import json
 import os
@@ -164,7 +164,6 @@ async def presentation_generate(session_id: str):
         sessions[session_id]["presentation_step_audio"] = []
         sessions[session_id]["presentation_audio_zip_path"] = ""
         sessions[session_id]["presentation_outline_path"] = outline_path
-        sessions[session_id]["presentation_video_path"] = ""
         sessions.save(session_id)
         return {
             "status": "ok",
@@ -301,5 +300,4 @@ async def presentation_narration_script(session_id: str):
         media_type="text/markdown; charset=utf-8",
         filename=md_name,
     )
-
 

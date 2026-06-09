@@ -131,7 +131,7 @@ import type { PresentationData } from './presentation/types'
 
 export async function generatePresentation(
   sessionId: string,
-): Promise<{ status: string; step_count: number; pptx_filename?: string }> {
+): Promise<{ status: string; step_count: number; outline_filename: string }> {
   const res = await fetch(`${BASE}/session/${sessionId}/presentation/generate`, {
     method: 'POST',
   })
@@ -184,8 +184,8 @@ export function getNarrationScriptUrl(sessionId: string): string {
 export interface HistoryFiles {
   word: boolean
   audio: boolean
-  pptx: boolean
-  video: boolean
+  presentation: boolean
+  presentation_audio: boolean
 }
 
 export interface HistoryItem {
@@ -204,8 +204,6 @@ export interface ResumeInfo {
   audio_file: string
   audio_zip: string
   audio_chapters: ChapterAudioFile[]
-  pptx_file: string
-  video_file: string
   pres_audio_zip: string
   has_presentation: boolean
   has_pres_audio: boolean

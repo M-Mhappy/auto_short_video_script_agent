@@ -26,8 +26,6 @@ def _empty_media_session_fields() -> dict:
         "presentation_step_audio": [],
         "presentation_audio_zip_path": "",
         "presentation_outline_path": "",
-        "presentation_pptx_path": "",
-        "presentation_video_path": "",
     }
 
 

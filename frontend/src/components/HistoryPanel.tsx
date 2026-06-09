@@ -51,7 +51,8 @@ export default function HistoryPanel({ open, onClose, onResume }: HistoryPanelPr
   const fileLabels: { key: keyof HistoryItem['files']; label: string }[] = [
     { key: 'word', label: 'Word' },
     { key: 'audio', label: '配音' },
-    { key: 'pptx', label: '演示' },
+    { key: 'presentation', label: '演示' },
+    { key: 'presentation_audio', label: '演示配音' },
   ]
 
   return (
@@ -137,7 +138,7 @@ export default function HistoryPanel({ open, onClose, onResume }: HistoryPanelPr
                     配音
                   </a>
                 )}
-                {item.files.pptx && (
+                {item.files.presentation_audio && (
                   <a
                     href={getPresentationAudioZipUrl(item.session_id)}
                     className="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors"

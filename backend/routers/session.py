@@ -84,8 +84,11 @@ async def get_history(limit: int = 10):
             (bool(s.get("audio_path")) and os.path.exists(s.get("audio_path", "")))
             or bool(s.get("audio_zip_path")) and os.path.exists(s.get("audio_zip_path", ""))
         )
-        has_pptx = bool(s.get("presentation_pptx_path")) and os.path.exists(s.get("presentation_pptx_path", ""))
-        has_video = bool(s.get("presentation_video_path")) and os.path.exists(s.get("presentation_video_path", ""))
+        has_presentation = bool(s.get("presentation_steps"))
+        has_presentation_audio = (
+            bool(s.get("presentation_audio_zip_path"))
+            and os.path.exists(s.get("presentation_audio_zip_path", ""))
+        )
 
         title = s.get("title", "")
         if not title:
@@ -102,8 +105,8 @@ async def get_history(limit: int = 10):
             "files": {
                 "word": has_word,
                 "audio": has_audio,
-                "pptx": has_pptx,
-                "video": has_video,
+                "presentation": has_presentation,
+                "presentation_audio": has_presentation_audio,
             },
         })
 
@@ -123,12 +126,10 @@ async def resume_info(session_id: str):
     word_file = _check("word_file_path")
     audio_file = _check("audio_path")
     audio_zip = _check("audio_zip_path")
-    pptx_file = _check("presentation_pptx_path")
-    video_file = _check("presentation_video_path")
     pres_audio_zip = _check("presentation_audio_zip_path")
 
     has_presentation = bool(session.get("presentation_steps"))
-    has_pres_audio = bool(session.get("presentation_step_audio"))
+    has_pres_audio = bool(session.get("presentation_step_audio")) or bool(pres_audio_zip)
     audio_chapters = session.get("audio_chapters") or []
 
     title = session.get("title", "")
@@ -147,8 +148,6 @@ async def resume_info(session_id: str):
             {"chapter": c.get("chapter"), "title": c.get("title", ""), "filename": c.get("filename", "")}
             for c in audio_chapters
         ],
-        "pptx_file": pptx_file,
-        "video_file": video_file,
         "pres_audio_zip": pres_audio_zip,
         "has_presentation": has_presentation,
         "has_pres_audio": has_pres_audio,
