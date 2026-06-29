@@ -34,9 +34,11 @@ class AgentState(MessagesState):
     search_results: list[BookInfo]
     selected_book: Optional[BookInfo]
     reference_script: str
+    script_context_cache_key: str
     script_draft: str
     script_chapters: list[ScriptChapter]
     review_result: Optional[ReviewResult]
+    llm_cache_stats: list[dict]
     retry_count: int
     user_feedback: str
     current_step: str

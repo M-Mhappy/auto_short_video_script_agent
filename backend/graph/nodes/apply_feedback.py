@@ -1,29 +1,37 @@
 from langchain_core.messages import SystemMessage, HumanMessage
 from backend.config import SCRIPT_ENDING
 from backend.llm import get_llm
-from backend.prompts.templates import APPLY_FEEDBACK_PROMPT
+from backend.prompts.templates import APPLY_FEEDBACK_TASK_PROMPT
 from backend.tools.chapters import parse_chapters
-
-SYSTEM_MSG = (
-    "你是一位口播稿修改专家。你必须根据用户反馈对稿件做出明确、可感知的修改。"
-    "修改后的稿件必须与原稿有显著不同。保留 ## 章节标题 分段格式。"
-    "直接输出修改后的完整稿件全文。"
+from backend.tools.prompt_cache import (
+    SCRIPT_WRITER_SYSTEM_MSG,
+    append_prompt_cache_stat,
+    build_cacheable_prompt,
+    build_script_context_prefix,
+    make_script_context_cache_key,
 )
 
 
 def apply_feedback_node(state: dict) -> dict:
     current_script = state.get("script_draft", "")
     feedback = state.get("user_feedback", "")
+    book = state.get("selected_book", {})
+    reference = state.get("reference_script", "")
 
     llm = get_llm(temperature=0.7)
 
-    prompt = APPLY_FEEDBACK_PROMPT.format(
+    prefix = build_script_context_prefix(book, reference)
+    cache_key = state.get("script_context_cache_key") or make_script_context_cache_key(
+        prefix,
+    )
+    task_prompt = APPLY_FEEDBACK_TASK_PROMPT.format(
         current_script=current_script,
         user_feedback=feedback,
     )
+    prompt = build_cacheable_prompt(prefix, task_prompt)
 
     messages = [
-        SystemMessage(content=SYSTEM_MSG),
+        SystemMessage(content=SCRIPT_WRITER_SYSTEM_MSG),
         HumanMessage(content=prompt),
     ]
 
@@ -35,5 +43,9 @@ def apply_feedback_node(state: dict) -> dict:
     return {
         "script_draft": script,
         "script_chapters": parse_chapters(script),
+        "script_context_cache_key": cache_key,
+        "llm_cache_stats": append_prompt_cache_stat(
+            state, response, "apply_feedback", cache_key,
+        ),
         "current_step": "apply_feedback",
     }
